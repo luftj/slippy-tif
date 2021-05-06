@@ -1,0 +1,14 @@
+new ol.layer.Vector({
+    title: '{{map.split("/")[-1]}}',
+    source: new ol.source.Vector({
+            projection : 'EPSG:4326',
+            url: '{{ url_for('static', filename=map.replace("static","")) }}',
+            format: new ol.format.GeoJSON()
+    }),
+    style: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+            color: [64, 200, 200, 1],
+            width: 2
+        })
+    })
+}),

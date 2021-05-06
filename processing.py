@@ -6,9 +6,19 @@ import json
 
 from osgeo import gdal
 
+from config import config
+
 config_path = "config.json"
 slippy_maps_path = "static/slippy_maps/"
 file_types = [".tif"]
+vector_types = [".geojson"]
+
+def get_vector_maps():
+    path = "static/vector_maps/"
+    vector_map_files = os.listdir(path)
+    vector_map_files = [os.path.join(path,x) for x in vector_map_files]
+    vector_map_files = [x for x in vector_map_files if os.path.isfile(x) and os.path.splitext(x)[-1] in vector_types]
+    return vector_map_files
 
 def get_raster_bbox(filepath):
     # from https://gis.stackexchange.com/questions/126467/determining-if-shapefile-and-raster-overlap-in-python-using-ogr-gdal#126472
@@ -43,9 +53,7 @@ def overlap_bbox(bbox_a, bbox_b):
     return has_x_overlap and has_y_overlap
 
 def get_map_paths():
-    with open(config_path) as fr:
-        config = json.load(fr)
-        return config["map_paths"]
+    return config["map_paths"]
 
 def get_map_dirs():
     map_dirs = []
@@ -115,7 +123,6 @@ def get_overlapping_maps(list_of_files):
     
 
     print(*final_sets, sep="\n")
-
 
 def make_tiles():
     for raw_maps_path in get_map_paths():
