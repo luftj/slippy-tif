@@ -1,0 +1,148 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+    <title>Map browser</title>
+    <meta http-equiv='imagetoolbar' content='no'/>
+    <style type="text/css"> v\:* {behavior:url(#default#VML);}
+        html, body { overflow: hidden; padding: 0; height: 100%; width: 100%; font-family: 'Lucida Grande',Geneva,Arial,Verdana,sans-serif; }
+        body { margin: 10px; background: #fff; }
+        h1 { margin: 0; padding: 6px; border:0; font-size: 20pt; }
+        #header { height: 43px; padding: 0; background-color: #eee; border: 1px solid #888; }
+        #map { height: 90%; border: 1px solid #888; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css" type="text/css">
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
+    <script src="https://unpkg.com/ol-layerswitcher@3.5.0"></script>
+    <link rel="stylesheet" href="https://unpkg.com/ol-layerswitcher@3.5.0/src/ol-layerswitcher.css" />
+</head>
+<body>
+    <div id="header"><h1>Map browser</h1></div>
+    <div id="map" class="map"></div>
+    <div id="mouse-position"></div>
+    <script type="text/javascript">
+        var mousePositionControl = new ol.control.MousePosition({
+            className: 'custom-mouse-position',
+            target: document.getElementById('mouse-position'),
+            undefinedHTML: '&nbsp;'
+        });
+        var map = new ol.Map({
+            controls: ol.control.defaults().extend([mousePositionControl]),
+            target: 'map',
+
+            layers: [
+                new ol.layer.Group({
+                        title: 'Base maps',
+                        layers: [
+                            new ol.layer.Tile({
+                                title: 'OpenStreetMap',
+                                type: 'base',
+                                visible: true,
+                                source: new ol.source.OSM()
+                            }),
+                            new ol.layer.Tile({
+                                title: 'empty',
+                                type: 'base'
+                            })
+                        ]
+                }),
+                new ol.layer.Group({
+                    title: 'Single maps',
+                    visible: false,
+                    layers: [
+                        {% for dir in single_maps %}
+                        new ol.layer.Tile({
+                            title: "{{ dir.split("/")[-1] }}",
+                            // opacity: 0.7,
+                            extent: [5, 47, 24, 56],
+                            source: new ol.source.TileImage({
+                                attributions: '',
+                                projection: 'EPSG:4326',
+                                minZoom: 5,
+                                maxZoom: 15,
+                                tileGrid: new ol.tilegrid.TileGrid({
+                                    extent: [-180,-90,180,90],
+                                    origin: [-180,-90],
+                                    resolutions: [1.40625,0.703125,0.3515625,0.17578125,0.087890625,0.0439453125,0.02197265625,0.010986328125,0.0054931640625,0.00274658203125,0.001373291015625,0.0006866455078125,0.00034332275390625,0.000171661376953125,8.58306884765625e-05,4.291534423828125e-05],
+                                    tileSize: [256, 256]
+                                }),
+                                tileUrlFunction: function(tileCoord) {
+                                    console.log(tileCoord)
+                                    url =  ('{{ url_for('static', filename=dir.replace("static","")) }}/{z}/{x}/{y}.png'
+                                        .replace('{z}', String(tileCoord[0]))
+                                        .replace('{x}', String(tileCoord[1]))
+                                        .replace('{y}', String(- 1 - tileCoord[2]))
+                                        );
+                                    console.log(url)
+                                    return url;
+                                },
+                            })
+                        }),
+                        {% endfor %}
+                    ]
+                }),
+                {% for group_name,map_dirs in map_groups.items() %}
+                new ol.layer.Group({
+                    title: '{{group_name}}',
+                    visible: false,
+                    layers: [
+                        {% for dir in map_dirs %}
+                        new ol.layer.Tile({
+                            title: "{{ dir.split("/")[-1] }}",
+                            // opacity: 0.7,
+                            extent: [5, 47, 24, 56],
+                            source: new ol.source.TileImage({
+                                visible: false,
+                                attributions: '',
+                                projection: 'EPSG:4326',
+                                minZoom: 5,
+                                maxZoom: 15,
+                                tileGrid: new ol.tilegrid.TileGrid({
+                                    extent: [-180,-90,180,90],
+                                    origin: [-180,-90],
+                                    resolutions: [1.40625,0.703125,0.3515625,0.17578125,0.087890625,0.0439453125,0.02197265625,0.010986328125,0.0054931640625,0.00274658203125,0.001373291015625,0.0006866455078125,0.00034332275390625,0.000171661376953125,8.58306884765625e-05,4.291534423828125e-05],
+                                    tileSize: [256, 256]
+                                }),
+                                tileUrlFunction: function(tileCoord) {
+                                    url =  ('{{ url_for('static', filename=dir.replace("static","")) }}/{z}/{x}/{y}.png'
+                                        .replace('{z}', String(tileCoord[0]))
+                                        .replace('{x}', String(tileCoord[1]))
+                                        .replace('{y}', String(- 1 - tileCoord[2]))
+                                        );
+                                    return url;
+                                },
+                            })
+                        }),
+                        {% endfor %}
+                    ]
+                }),
+                {% endfor %}
+                new ol.layer.Group({
+                    title: 'Vector maps',
+                    layers: [
+                        new ol.layer.Vector({
+                            title: 'Blattschnitt',
+                            source: new ol.source.Vector({
+                                    projection : 'EPSG:4326',
+                                    url: '{{ url_for('static', filename="vector_maps/blattschnitt_dr100_merged_digi_wgs84.geojson") }}',
+                                    format: new ol.format.GeoJSON()
+                            }),
+                            style: new ol.style.Style({
+                                stroke: new ol.style.Stroke({
+                                    color: [64, 200, 200, 1],
+                                    width: 2
+                                })
+                            })
+                        }),
+                ]
+                }),
+            ],
+            view: new ol.View({
+                center: [7.082621, 51.873619],
+                zoom: 5,
+                projection: 'EPSG:4326',
+            })
+        });
+        map.addControl(new ol.control.LayerSwitcher());
+    </script>
+</body>
+</html>

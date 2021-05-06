@@ -1,0 +1,8 @@
+{
+    "map_paths" : [
+        "data/raw_maps/",
+        "E:/experiments/registration_tuning/registration_ecc_iterations_3000/"
+    ],
+
+    "zoom_levels" : "5-15"
+}
