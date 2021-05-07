@@ -1,6 +1,6 @@
-from flask import Flask,render_template
+from flask import Flask, render_template
 
-import processing
+import map_handling
 
 app = Flask(__name__)
 
@@ -10,12 +10,12 @@ def test():
 
 @app.route('/')
 def root():
-    vector_maps = processing.get_vector_maps()
+    vector_maps = map_handling.get_vector_maps()
     print(vector_maps)
-    map_dirs = processing.get_map_dirs()
+    map_dirs = map_handling.get_map_dirs()
     print(map_dirs)
-    map_groups=processing.get_map_groups()
-    print(*map_groups.items(),sep="\n")
+    map_groups = map_handling.get_map_groups()
+    print(*map_groups.items(), sep="\n")
     return render_template('map_browser.html', vector_maps=vector_maps, single_maps=map_dirs, map_groups=map_groups )
 
 if __name__ == '__main__':

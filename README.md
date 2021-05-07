@@ -30,7 +30,6 @@ for a production server see e.g. [here](https://flask.palletsprojects.com/en/1.1
 * handle feature types for vector maps
 * different styles for vector maps
 * config.py automatically reload on change
-* read zoom level from config
 * read layer extent from files
 * inherit layer/group templates to simplify mapview template
 * process tiles beginning from low zoom level -> does this even work? base tiles vs overview tiles

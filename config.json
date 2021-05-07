@@ -1,8 +1,10 @@
 {
     "map_paths" : [
         "data/raw_maps/",
-        "E:/experiments/registration_tuning/registration_ecc_iterations_3000/"
+        "E:/experiments/registration_tuning/registration_ecc_iterations_3000/",
+        "E:/experiments/worldfile_test/crop/"
     ],
 
-    "zoom_levels" : "5-15"
+    "zoom_levels" : "4-12",
+    "tiling_interval" : 10
 }

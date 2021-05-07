@@ -1,24 +1,17 @@
 import os
 import sys
 import subprocess
-
 import json
+from time import sleep
 
 from osgeo import gdal
 
-from config import config
+from config import config,load_config
 
-config_path = "config.json"
 slippy_maps_path = "static/slippy_maps/"
-file_types = [".tif"]
+file_types = [".tif",".bmp"]
+wld_types = [".bmp"]
 vector_types = [".geojson"]
-
-def get_vector_maps():
-    path = "static/vector_maps/"
-    vector_map_files = os.listdir(path)
-    vector_map_files = [os.path.join(path,x) for x in vector_map_files]
-    vector_map_files = [x for x in vector_map_files if os.path.isfile(x) and os.path.splitext(x)[-1] in vector_types]
-    return vector_map_files
 
 def get_raster_bbox(filepath):
     # from https://gis.stackexchange.com/questions/126467/determining-if-shapefile-and-raster-overlap-in-python-using-ogr-gdal#126472
@@ -53,38 +46,20 @@ def overlap_bbox(bbox_a, bbox_b):
     return has_x_overlap and has_y_overlap
 
 def get_map_paths():
-    return config["map_paths"]
+    return load_config().get("map_paths")
 
-def get_map_dirs():
-    map_dirs = []
-    for filename in os.listdir(slippy_maps_path):
-        filepath = os.path.join(slippy_maps_path, filename)
-        if os.path.isdir(filepath) and not filename.startswith("group"):
-            print(filepath)
-            map_dirs.append(filepath)
-    return map_dirs
-
-def get_map_groups():
-    groups = {}
-    for filename in os.listdir(slippy_maps_path):
-        filepath = os.path.join(slippy_maps_path, filename)
-        if os.path.isdir(filepath) and filename.startswith("group"):
-            group_name = filename.replace("group_","")
-            print(filepath)
-            for map_dir in os.listdir(filepath):
-                if os.path.isdir(filepath):
-                    if not group_name in groups:
-                        groups[group_name] = []
-                    groups[group_name].append(filepath+"/"+map_dir)
-    return groups
-
-def convert(input_file,name,outpath):
+def convert(input_file, name, outpath, extraoptions=[]):
     gdaltilespath = 'C:/Program Files/GDAL/gdal2tiles.py'
     outdir = outpath + os.path.splitext(name)[0]+"_tiles/"
     if os.path.isdir(outdir):
         print("map %s already converted" % input_file)
-        # return # already exists
-    command = [sys.executable, gdaltilespath,"-x","-n","-e","--processes=2","-z","4-12","--profile","geodetic",input_file, outdir]
+        return # already exists
+    command = [sys.executable, gdaltilespath] + extraoptions + ["-x", "-n", "-e",
+                #"--s_srs","EPSG:4325",
+                "--processes=2",
+                "-z", config.get("zoom_levels"),
+                "--profile", "geodetic",
+                input_file, outdir]
     print(command)
     subprocess.run(command)
 
@@ -124,15 +99,41 @@ def get_overlapping_maps(list_of_files):
 
     print(*final_sets, sep="\n")
 
+def check_worldfile(filepath):
+    worldfile = os.path.splitext(filepath)[0]+".wld"
+    if not os.path.isfile(worldfile):
+        print("no worldfile")
+        return False
+    new_path = os.path.splitext(filepath)[0]+".tif"
+    # check if already done
+    if os.path.isfile(new_path):
+        print("already warped")
+    else:
+        print("creating geotif first...")
+        # command = ["gdal_translate", filepath, os.path.splitext(filepath)[0]+".tif"]
+        command = ["gdalwarp", "-s_srs", "EPSG:4325", "-t_srs", "EPSG:4325", filepath, new_path]
+        print(command)
+        subprocess.run(command)
+    return True
+
 def make_tiles():
     for raw_maps_path in get_map_paths():
+        print("looking for maps in",raw_maps_path)
         for filename in os.listdir(raw_maps_path):
             filepath = os.path.join(raw_maps_path,filename)
             if os.path.isfile(filepath):
                 if not os.path.splitext(filename)[-1] in file_types:
                     continue # not a map
 
-                convert(filepath, filename, slippy_maps_path)
+                print("check",filename,filepath)
+                if os.path.splitext(filename)[-1] in wld_types: # not geotif
+                    if check_worldfile(filepath): # worldfile present
+                        filename = os.path.splitext(filename)[0]+".tif"
+                        filepath = os.path.splitext(filepath)[0]+".tif"
+                        extraoptions = ["--s_srs", "EPSG:4325"] # no srs in worldfile
+                        convert(filepath, filename, slippy_maps_path, extraoptions=extraoptions)
+                else:
+                    convert(filepath, filename, slippy_maps_path)
                 # # gdaltilespath = os.path.dirname(os.path.abspath(gdal2tiles.__file__))+"/gdal2tiles"
                 # gdaltilespath = 'C:/Program Files/GDAL/gdal2tiles.py'
                 # outdir = slippy_maps_path + os.path.splitext(filename)[0]+"_tiles/"
@@ -148,18 +149,27 @@ def make_tiles():
                 #from osm wiki:
                 #If you want to tile multiple images, you might merge them first. A nice space-saving way is to use the gdal_vrtmerge.py example script to make a GDAL virtual raster which can then be fed to the main gdal2tiles.py program.
                 #gdal_vrtmerge.py -o mosaic.vrt -i *.tif
-                print(filepath)
                 # gdalmergepath = 'C:/Program Files/GDAL/gdal_vrtmerge.py'
                 # vrt_file = "%s_marged.vrt" % filename
                 infiles = [os.path.join(filepath,f) for f in os.listdir(filepath) if os.path.splitext(f)[-1] in file_types]
                 # get_overlapping_maps(infiles)
-                # exit()
                 # command = ["gdalbuildvrt", vrt_file, *infiles]
                 # print(command)
                 # subprocess.run(command)
                 
                 for f in infiles:
-                    convert(f, os.path.basename(f), slippy_maps_path+"group_"+os.path.splitext(filename)[0]+"/")
+                    print("checking",f)
+                    outdir = slippy_maps_path+"group_"+os.path.splitext(filename)[0]+"/"
+                    subfilename = os.path.basename(f)
+                    
+                    if os.path.splitext(subfilename)[-1] in wld_types: # not geotif
+                        if check_worldfile(f): # worldfile present
+                            subfilename = os.path.splitext(subfilename)[0]+".tif"
+                            f = os.path.splitext(f)[0]+".tif"
+                            extraoptions = ["--s_srs", "EPSG:4325"] # no srs in worldfile
+                            convert(f, subfilename, outdir, extraoptions=extraoptions)
+                    else:
+                        convert(f, subfilename, outdir)
                 # gdaltilespath = 'C:/Program Files/GDAL/gdal2tiles.py'
                 # outdir = slippy_maps_path + os.path.splitext(filename)[0]+"_tiles/"
                 # if os.path.isdir(outdir):
@@ -171,4 +181,6 @@ def make_tiles():
                 
 
 if __name__ == "__main__":
-    make_tiles()
+    while True:
+        sleep(config.get("tiling_interval"))
+        make_tiles()
