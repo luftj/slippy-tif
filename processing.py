@@ -55,7 +55,7 @@ def convert(input_file, name, outpath, extraoptions=[]):
         print("map %s already converted" % input_file)
         return # already exists
     command = [sys.executable, gdaltilespath] + extraoptions + ["-x", "-n", "-e",
-                #"--s_srs","EPSG:4325",
+                #"--s_srs","EPSG:4325", # this only works when there is no srs in the input file
                 "--processes=2",
                 "-z", config.get("zoom_levels"),
                 "--profile", "geodetic",
